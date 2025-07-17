@@ -1,7 +1,5 @@
-from flask import Flask, request, jsonify, make_response
+from flask import Flask, request, make_response
 import requests
-import re
-import json
 
 app = Flask(__name__)
 
@@ -12,37 +10,26 @@ def valida_cupom():
     cupom = request.args.get('cupom', '').lower()
 
     if not cupom:
-        return make_response(jsonify({'erro': 'Cupom não informado'}), 400)
+        return make_response('', 400)
 
     try:
         resposta = requests.get(APPSCRIPT_URL, params={'cupom': cupom})
-        texto_resposta = resposta.text.strip()
 
-        if not texto_resposta:
-            return make_response(jsonify({'erro': 'Resposta vazia do App Script'}), 400)
+        if not resposta.content or not resposta.text.strip():
+            return make_response('', 400)
 
-        # Tenta decodificar como JSON válido
         try:
             dados = resposta.json()
-            if isinstance(dados, dict) and dados.get('status') == 'success':
-                return jsonify(dados)
-            else:
-                return make_response(jsonify({'erro': dados.get('mensagem', 'Cupom inválido')}), 400)
-        except Exception:
-            # Caso seja HTML, tenta extrair JSON embutido
-            match = re.search(r'Error:\s*(\{.*\})\s*\(', texto_resposta)
-            if match:
-                try:
-                    erro_embutido = json.loads(match.group(1))
-                    return make_response(jsonify({'erro': erro_embutido.get('mensagem', 'Cupom inválido')}), 400)
-                except:
-                    pass
+        except:
+            return make_response('', 400)
 
-            return make_response(jsonify({'erro': 'Resposta inválida'}), 400)
+        if dados.get('status') == 'success':
+            return make_response('', 200)
+        else:
+            return make_response('', 400)
 
-    except Exception as e:
-        return make_response(jsonify({'erro': 'Erro inesperado'}), 400)
+    except:
+        return make_response('', 400)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
-
+    app.run(host="0.0.0.0", port=8080)
