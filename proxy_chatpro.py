@@ -1,4 +1,4 @@
-from flask import Flask, request, make_response
+from flask import Flask, request, make_response, jsonify
 import requests
 
 app = Flask(__name__)
@@ -24,7 +24,13 @@ def valida_cupom():
             return make_response('', 400)
 
         if dados.get('status') == 'success':
-            return make_response('', 200)
+            parceiro = dados.get('parceiro', 'nosso parceiro')
+            mensagem = (
+                f":confete_e_serpentina: Achei o cupom do nosso parceiro {parceiro}!\n"
+                f"Parabéns, você acaba de desbloquear um desconto especial :brilhos:\n"
+                f"A gente ama quando boas indicações geram bons cuidados :coração_azul:"
+            )
+            return jsonify({"mensagem": mensagem}), 200
         else:
             return make_response('', 400)
 
