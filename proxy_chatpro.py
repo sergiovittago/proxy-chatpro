@@ -26,9 +26,9 @@ def valida_cupom():
         if dados.get('status') == 'success':
             parceiro = dados.get('parceiro', 'nosso parceiro')
             mensagem = (
-                f":confete_e_serpentina: Achei o cupom do nosso parceiro {parceiro}!\n"
-                f"Parabéns, você acaba de desbloquear um desconto especial :brilhos:\n"
-                f"A gente ama quando boas indicações geram bons cuidados :coração_azul:"
+                f"*Achei o cupom do nosso parceiro {parceiro}!*\n"
+                f"Parabéns, você acaba de desbloquear um desconto especial\n"
+                f"A gente ama quando boas indicações geram bons cuidados"
             )
             return jsonify({"mensagem": mensagem}), 200
         else:
