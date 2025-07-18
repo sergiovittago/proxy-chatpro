@@ -1,59 +1,56 @@
 from flask import Flask, request, jsonify
 import gspread
-from google.oauth2.service_account import Credentials
-import traceback
+from oauth2client.service_account import ServiceAccountCredentials
 import os
 
 app = Flask(__name__)
 
-# Caminho para o arquivo JSON da conta de serviço
-CREDENTIALS_FILE = 'client_secret.json'
-
-# ID da planilha e nome da aba
-SPREADSHEET_ID = '1nDt7X9pekO1q0hlr0NFOHbIM4bwzl9gMQXMLa2NN9E'
-SHEET_NAME = 'CUPONS'
+# Log simples no console
+def log(msg):
+    print(f"[LOG] {msg}")
 
 @app.route('/')
 def home():
-    return 'API de verificação de cupons online!'
+    return "API do Proxy ChatPro no ar"
 
-@app.route('/verificar_cupom', methods=['GET'])
-def verificar_cupom():
-    cupom = request.args.get('cupom', '').strip().upper()
-
+@app.route('/valida-cupom')
+def valida_cupom():
+    cupom = request.args.get('cupom')
     if not cupom:
-        return jsonify({'error': 'Cupom não informado'}), 400
+        return jsonify({"error": "Cupom não fornecido"}), 400
+
+    log(f"Recebendo validação para o cupom: {cupom}")
 
     try:
-        print("🟡 Iniciando autenticação com Google Sheets...")
-        scopes = ['https://www.googleapis.com/auth/spreadsheets.readonly']
-        credentials = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=scopes)
-        client = gspread.authorize(credentials)
-        print("✅ Autenticação realizada com sucesso.")
+        # Escopo e autenticação
+        scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+        creds = ServiceAccountCredentials.from_json_keyfile_name('credenciais.json', scope)
+        client = gspread.authorize(creds)
 
-        print(f"🟡 Acessando planilha com ID: {SPREADSHEET_ID}")
-        spreadsheet = client.open_by_key(SPREADSHEET_ID)
+        # Nome ou URL da planilha
+        sheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1nDt7X9pekO1q0hlr0NFOHbIM4bwi2lygMQXMLa2NN9E/edit#gid=0")
+        aba = sheet.sheet1  # Ou sheet.worksheet("nome_da_aba")
 
-        print(f"🟡 Acessando aba '{SHEET_NAME}'")
-        sheet = spreadsheet.worksheet(SHEET_NAME)
+        dados = aba.get_all_records()
+        log(f"{len(dados)} registros carregados da planilha.")
 
-        print("🟡 Buscando todas as linhas da aba...")
-        data = sheet.get_all_records()
-        print(f"✅ {len(data)} registros encontrados.")
+        for linha in dados:
+            if str(linha.get("Cupom")).strip().upper() == cupom.strip().upper():
+                log("Cupom encontrado e válido.")
+                return jsonify({
+                    "cupom": linha.get("Cupom"),
+                    "status": "válido",
+                    "descricao": linha.get("Descrição"),
+                    "desconto": linha.get("Desconto")
+                })
 
-        for row in data:
-            if str(row['CUPOM']).strip().upper() == cupom:
-                print(f"✅ Cupom encontrado: {row}")
-                return jsonify({'cupom': cupom, 'nome': row['NOME']})
-
-        print("⚠️ Cupom não encontrado na planilha.")
-        return jsonify({'error': 'Cupom não encontrado'}), 404
+        log("Cupom não encontrado.")
+        return jsonify({"cupom": cupom, "status": "inválido"}), 404
 
     except Exception as e:
-        print("❌ Erro ao acessar planilha:")
-        traceback.print_exc()
-        return jsonify({'error': f'Erro ao acessar planilha: {str(e)}'}), 500
+        log(f"Erro ao validar cupom: {e}")
+        return jsonify({"error": "Erro ao acessar planilha", "details": str(e)}), 500
 
+# Executa localmente (não usado no Render)
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(debug=True, host='0.0.0.0', port=port)
+    app.run(debug=True)
