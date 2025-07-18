@@ -1,15 +1,21 @@
 from flask import Flask, request, jsonify
 import gspread
 from google.oauth2.service_account import Credentials
+import traceback
+import os
 
 app = Flask(__name__)
 
-# Caminho do arquivo de credenciais
-CREDENTIALS_FILE = 'credentials.json'
+# Caminho para o arquivo JSON da conta de serviço
+CREDENTIALS_FILE = 'client_secret.json'
 
-# ID da planilha (retirado da URL)
-SPREADSHEET_ID = '1nDt7X9pekO1q0hlr0NFOHbIM4bwi2IygMQXMLa2NN9E'
+# ID da planilha e nome da aba
+SPREADSHEET_ID = '1nDt7X9pekO1q0hlr0NFOHbIM4bwzl9gMQXMLa2NN9E'
 SHEET_NAME = 'CUPONS'
+
+@app.route('/')
+def home():
+    return 'API de verificação de cupons online!'
 
 @app.route('/verificar_cupom', methods=['GET'])
 def verificar_cupom():
@@ -44,9 +50,10 @@ def verificar_cupom():
         return jsonify({'error': 'Cupom não encontrado'}), 404
 
     except Exception as e:
-        print(f"❌ Erro ao acessar planilha: {e}")
+        print("❌ Erro ao acessar planilha:")
+        traceback.print_exc()
         return jsonify({'error': f'Erro ao acessar planilha: {str(e)}'}), 500
 
-
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(debug=True, host='0.0.0.0', port=port)
