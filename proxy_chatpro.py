@@ -1,56 +1,45 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-import os
+from google.oauth2.service_account import Credentials
 
 app = Flask(__name__)
 
-# Log simples no console
-def log(msg):
-    print(f"[LOG] {msg}")
+# Autenticação com Google Sheets
+SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
+CREDS = Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
+client = gspread.authorize(CREDS)
 
-@app.route('/')
-def home():
-    return "API do Proxy ChatPro no ar"
+# Abre a planilha e a aba correta
+sheet = client.open_by_key('1nDt7X9pekO1q0hlr0NFOHbIM4bwi2lygMQXMLa2NN9E')
+worksheet = sheet.worksheet('CUPONS')
 
-@app.route('/valida-cupom')
+@app.route('/valida-cupom', methods=['GET'])
 def valida_cupom():
-    cupom = request.args.get('cupom')
-    if not cupom:
-        return jsonify({"error": "Cupom não fornecido"}), 400
+    cupom = request.args.get('cupom', '').strip().upper()
 
-    log(f"Recebendo validação para o cupom: {cupom}")
+    if not cupom:
+        return make_response('', 400)
 
     try:
-        # Escopo e autenticação
-        scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-        creds = ServiceAccountCredentials.from_json_keyfile_name('credenciais.json', scope)
-        client = gspread.authorize(creds)
+        # Lê todas as linhas da aba
+        dados = worksheet.get_all_values()
 
-        # Nome ou URL da planilha
-        sheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1nDt7X9pekO1q0hlr0NFOHbIM4bwi2lygMQXMLa2NN9E/edit#gid=0")
-        aba = sheet.sheet1  # Ou sheet.worksheet("nome_da_aba")
+        # Ignora o cabeçalho e procura o cupom na coluna A
+        for linha in dados[1:]:
+            if len(linha) >= 2 and linha[0].strip().upper() == cupom:
+                parceiro = linha[1].strip()
+                mensagem = (
+                    f"*Achei o cupom do nosso parceiro {parceiro}!*\n"
+                    f"Parabéns, você acaba de desbloquear um desconto especial\n"
+                    f"A gente ama quando boas indicações geram bons cuidados"
+                )
+                return jsonify({"mensagem": mensagem}), 200
 
-        dados = aba.get_all_records()
-        log(f"{len(dados)} registros carregados da planilha.")
-
-        for linha in dados:
-            if str(linha.get("Cupom")).strip().upper() == cupom.strip().upper():
-                log("Cupom encontrado e válido.")
-                return jsonify({
-                    "cupom": linha.get("Cupom"),
-                    "status": "válido",
-                    "descricao": linha.get("Descrição"),
-                    "desconto": linha.get("Desconto")
-                })
-
-        log("Cupom não encontrado.")
-        return jsonify({"cupom": cupom, "status": "inválido"}), 404
+        return make_response('', 400)
 
     except Exception as e:
-        log(f"Erro ao validar cupom: {e}")
-        return jsonify({"error": "Erro ao acessar planilha", "details": str(e)}), 500
+        print(f'Erro: {e}')
+        return make_response('', 400)
 
-# Executa localmente (não usado no Render)
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=8080)
