@@ -1,5 +1,5 @@
-flask
+Flask
 gspread
 google-auth
-requests
-gunicorn
+google-auth-oauthlib
+google-auth-httplib2
